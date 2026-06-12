@@ -1257,69 +1257,128 @@ export default function NinjaGame({ onCloseGame }: Props) {
     ctx.rotate(angle);
 
     // 1. Draw Trademark flowing long spiky hair (Madara's long locks flowing behind)
-    ctx.fillStyle = "#020104"; // Charcoal black
+    ctx.fillStyle = "#090412"; // Charcoal black
     ctx.beginPath();
-    
-    // Front top skull anchors
-    ctx.moveTo(-4, -8);
-    // Draw the massive flowing spiky mane draping far backward
-    ctx.bezierCurveTo(-26, -26, -38, -14, -46, -4);
-    ctx.bezierCurveTo(-42, 12, -26, 22, -4, 8);
-    
-    // Add additional sharp spiky points to the flowing locks
-    ctx.lineTo(-26, 16);
-    ctx.lineTo(-14, 4);
-    ctx.lineTo(-30, 6);
-    ctx.lineTo(-14, -4);
-    ctx.lineTo(-28, -12);
-    ctx.lineTo(-8, -8);
+    // Center-top of head anchor
+    ctx.moveTo(3, -9);
+    // Spiky mane structure (top, back, bottom spikes matching the reference)
+    ctx.lineTo(-2, -14); // Left side top spike
+    ctx.lineTo(-8, -12);
+    ctx.lineTo(-12, -22); // Outer left spike
+    ctx.lineTo(-15, -14);
+    ctx.lineTo(-26, -24); // Back-left flowing spike
+    ctx.lineTo(-22, -10);
+    ctx.lineTo(-44, -18); // Long back-left trail
+    ctx.lineTo(-32, -4);
+    ctx.lineTo(-50, -6);  // Long center-back trail (longest)
+    ctx.lineTo(-34, 2);
+    ctx.lineTo(-44, 12);  // Long back-right trail
+    ctx.lineTo(-22, 8);
+    ctx.lineTo(-28, 20);  // Back-right flowing spike
+    ctx.lineTo(-14, 12);
+    ctx.lineTo(-14, 20);  // Outer right spike
+    ctx.lineTo(-8, 10);
+    ctx.lineTo(-3, 13);   // Right side top spike
+    ctx.lineTo(2, 7);
     ctx.closePath();
     ctx.fill();
 
-    // 2. Draw Dark Navy Armor Kimono base
-    ctx.fillStyle = "#0c1020";
+    // 2. Undergarments (Dark purple collar & sleeves)
+    ctx.fillStyle = "#1e1136"; // Deep purple
     ctx.beginPath();
     ctx.arc(0, 0, 14, 0, Math.PI * 2);
     ctx.fill();
 
-    // 3. Draw Sengoku Red Armor plates
-    ctx.fillStyle = "#8a0c0c"; // Crimson red
-    // Breastplate
+    // 3. Segmented Red Samurai Armor (Reference: Red chestplate, shoulder sode, waist kusazuri)
+    ctx.fillStyle = "#8a1010"; // Crimson red armor
+    
+    // Main Chestplate (with horizontal divisions/lines)
     ctx.beginPath();
-    ctx.arc(0, 0, 11.5, -Math.PI / 2, Math.PI / 2);
+    ctx.arc(0, 0, 11, -Math.PI / 2, Math.PI / 2);
     ctx.fill();
-
-    // Shoulder sodes
-    ctx.fillRect(-7, -15, 5.5, 5);
-    ctx.fillRect(-7, 10, 5.5, 5);
-    // Hip plate guards
-    ctx.fillRect(-13, -7, 4, 14);
-
-    // 4. Visible Pale Skin Face (placed towards the front facing direction)
-    ctx.fillStyle = "#fce4ec";
+    // Draw horizontal panel lines on chestplate
+    ctx.strokeStyle = "#3a0303";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(4, 0, 8, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw the signature hair bangs draping over his eyes/face
-    ctx.strokeStyle = "#020104";
-    ctx.lineWidth = 2.2;
-    ctx.beginPath();
-    ctx.moveTo(1, -7);
-    ctx.quadraticCurveTo(8, -4, 8, 1);
+    ctx.moveTo(0, -11);
+    ctx.lineTo(0, 11);
+    ctx.moveTo(4, -9.5);
+    ctx.lineTo(4, 9.5);
+    ctx.moveTo(-4, -9.5);
+    ctx.lineTo(-4, 9.5);
     ctx.stroke();
 
-    // 5. Sharingan glowing red eye
-    ctx.fillStyle = "#ff1744";
+    // Sode (Shoulder Guards) - Segmented plates on left/right shoulders
+    // Left Shoulder Sode
+    ctx.fillStyle = "#8a1010";
+    ctx.fillRect(-7, -16, 6, 5);
+    ctx.fillStyle = "#700a0a";
+    ctx.fillRect(-5, -16, 2, 5);
+    ctx.strokeStyle = "#3a0303";
+    ctx.strokeRect(-7, -16, 6, 5);
+    
+    // Right Shoulder Sode
+    ctx.fillStyle = "#8a1010";
+    ctx.fillRect(-7, 11, 6, 5);
+    ctx.fillStyle = "#700a0a";
+    ctx.fillRect(-5, 11, 2, 5);
+    ctx.strokeStyle = "#3a0303";
+    ctx.strokeRect(-7, 11, 6, 5);
+
+    // Kusazuri (Waist armor hanging down)
+    // Front hanging plate
+    ctx.fillStyle = "#8a1010";
+    ctx.fillRect(-15, -4, 4, 8);
+    ctx.strokeStyle = "#3a0303";
+    ctx.strokeRect(-15, -4, 4, 8);
+    // Panel lines on tassets
     ctx.beginPath();
-    ctx.arc(7, -2.5, 1.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#000000";
+    ctx.moveTo(-15, 0);
+    ctx.lineTo(-11, 0);
+    ctx.stroke();
+
+    // Side hanging tassets
+    ctx.fillStyle = "#700a0a";
+    ctx.fillRect(-14, -9, 3, 4);
+    ctx.fillRect(-14, 5, 3, 4);
+    ctx.strokeStyle = "#3a0303";
+    ctx.strokeRect(-14, -9, 3, 4);
+    ctx.strokeRect(-14, 5, 3, 4);
+
+    // 4. Visible Pale Skin Face
+    ctx.fillStyle = "#fce4ec";
     ctx.beginPath();
-    ctx.arc(7, -2.5, 0.6, 0, Math.PI * 2);
+    ctx.arc(5, 0, 7.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // 6. Draw Katana weapon
+    // 5. Signature bangs covering right eye (y negative side)
+    ctx.fillStyle = "#090412";
+    ctx.beginPath();
+    ctx.moveTo(3, -7);
+    ctx.quadraticCurveTo(9, -7, 11.5, -2); // Hangs down over the face
+    ctx.quadraticCurveTo(8, -2, 5, -5);
+    ctx.closePath();
+    ctx.fill();
+
+    // Extra lock draping down the middle/side
+    ctx.beginPath();
+    ctx.moveTo(4, -8);
+    ctx.quadraticCurveTo(9, -2, 12, 1.5);
+    ctx.quadraticCurveTo(6, 1, 3, -4);
+    ctx.closePath();
+    ctx.fill();
+
+    // 6. Left eye (y positive side) is a red Sharingan (red iris, black pupil)
+    ctx.fillStyle = "#ff1744"; // Sharingan Red
+    ctx.beginPath();
+    ctx.arc(8.5, 2.5, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#000000"; // Pupil
+    ctx.beginPath();
+    ctx.arc(8.5, 2.5, 0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 7. Draw Katana weapon
     ctx.strokeStyle = "#eceff1";
     ctx.lineWidth = 2;
     if (isAttacking) {
@@ -1354,7 +1413,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
       ctx.stroke();
     }
 
-    // 7. Susanoo Aura Frame (Ribcage wraps around him in ultimate mode)
+    // 8. Susanoo Aura Frame (Ribcage wraps around him in ultimate mode)
     if (isUltimate) {
       ctx.save();
       ctx.strokeStyle = "rgba(186, 104, 200, 0.75)";
