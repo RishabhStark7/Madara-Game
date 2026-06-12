@@ -1,7 +1,11 @@
 {
-  "name": "test-site-game",
+  "name": "madara-game",
   "version": "0.1.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RishabhStark7/Madara-Game.git"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
