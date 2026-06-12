@@ -84,6 +84,11 @@ export default function NinjaGame({ onCloseGame }: Props) {
   const [killCount, setKillCount] = useState<number>(0);
   const [hasVibrated, setHasVibrated] = useState<boolean>(false);
 
+  // Backing refs to avoid closure staleness inside 60fps loop
+  const scoreRef = useRef<number>(0);
+  const killCountRef = useRef<number>(0);
+  const highScoreRef = useRef<number>(0);
+
   // References to keep values inside game loop without re-triggering effects
   const gameStateRef = useRef<"menu" | "playing" | "gameover">("menu");
   gameStateRef.current = gameState;
@@ -253,6 +258,8 @@ export default function NinjaGame({ onCloseGame }: Props) {
     nextBossMilestoneIndex.current = 0;
     activeBoss.current = null;
     setBossHUD(null);
+    scoreRef.current = 0;
+    killCountRef.current = 0;
     setScore(0);
     setKillCount(0);
     setGameState("playing");
@@ -522,13 +529,13 @@ export default function NinjaGame({ onCloseGame }: Props) {
 
     // 4. Boss Villain Spawning Logic
     const currentMilestone = bossMilestones[nextBossMilestoneIndex.current];
-    if (score >= currentMilestone && !activeBoss.current) {
+    if (scoreRef.current >= currentMilestone && !activeBoss.current) {
       spawnBoss(canvasWidth, canvasHeight, currentMilestone);
       nextBossMilestoneIndex.current++;
     }
 
     // 5. Endless Enemy Spawning (Normal / Fast / Heavy bandits)
-    const baseSpawnRate = Math.max(12, 75 - Math.floor(score / 4));
+    const baseSpawnRate = Math.max(12, 75 - Math.floor(scoreRef.current / 4));
     // Keep max 40 normal enemies on screen at a time
     if (frameCount.current % baseSpawnRate === 0 && enemies.current.filter(e => e.type !== "boss").length < 40) {
       spawnEnemy(canvasWidth, canvasHeight);
@@ -574,9 +581,10 @@ export default function NinjaGame({ onCloseGame }: Props) {
           if (p.hp <= 0) {
             p.hp = 0;
             setGameState("gameover");
-            if (score > highScore) {
-              setHighScore(score);
-              localStorage.setItem("ninja_highscore", score.toString());
+            if (scoreRef.current > highScoreRef.current) {
+              highScoreRef.current = scoreRef.current;
+              setHighScore(scoreRef.current);
+              localStorage.setItem("ninja_highscore", scoreRef.current.toString());
             }
           }
 
@@ -651,9 +659,9 @@ export default function NinjaGame({ onCloseGame }: Props) {
             });
           }
           createScreenFlash("rgba(186,104,200,0.1)", 10);
-        } else if (enemy.type === "normal" && dist > 100 && dist < 320 && Math.random() < 0.15) {
-          // Normal bandits shoot occasionally
-          enemy.shootCooldown = 180 + Math.random() * 100; // shoot cooldown
+        } else if (enemy.type === "normal" && dist < 380 && Math.random() < 0.12) {
+          // Normal bandits shoot occasionally (without lower range block)
+          enemy.shootCooldown = 150 + Math.random() * 90; // shoot cooldown
           projectiles.current.push({
             id: nextProjectileId.current++,
             worldX: enemy.worldX,
@@ -665,9 +673,9 @@ export default function NinjaGame({ onCloseGame }: Props) {
             owner: "enemy",
             color: "#d500f9",
           });
-        } else if (enemy.type === "fast" && dist > 100 && dist < 260 && Math.random() < 0.1) {
+        } else if (enemy.type === "fast" && dist < 340 && Math.random() < 0.1) {
           // Fast bandit fires bullet
-          enemy.shootCooldown = 150;
+          enemy.shootCooldown = 120 + Math.random() * 60;
           projectiles.current.push({
             id: nextProjectileId.current++,
             worldX: enemy.worldX,
@@ -849,8 +857,10 @@ export default function NinjaGame({ onCloseGame }: Props) {
   const defeatEnemy = (enemy: Enemy) => {
     enemies.current = enemies.current.filter((e) => e.id !== enemy.id);
 
-    setScore((prev) => prev + enemy.scoreValue);
-    setKillCount((prev) => prev + 1);
+    scoreRef.current += enemy.scoreValue;
+    killCountRef.current += 1;
+    setScore(scoreRef.current);
+    setKillCount(killCountRef.current);
 
     // Charge Chakra
     const chakraGain = enemy.type === "boss" ? 45 : enemy.type === "heavy" ? 20 : enemy.type === "fast" ? 12 : 8;
@@ -921,15 +931,15 @@ export default function NinjaGame({ onCloseGame }: Props) {
     let damage = 5; // standard contact damage
     let scoreValue = 1;
 
-    const speedScaling = Math.min(score * 0.004, 1.0);
+    const speedScaling = Math.min(scoreRef.current * 0.004, 1.0);
 
-    if (roll > 80 && score > 8) {
+    if (roll > 80 && scoreRef.current > 8) {
       type = "heavy";
       hp = 3;
       speed = 1.2 + speedScaling * 0.4;
       damage = 10;
       scoreValue = 3;
-    } else if (roll > 55 && score > 4) {
+    } else if (roll > 55 && scoreRef.current > 4) {
       type = "fast";
       hp = 1;
       speed = 3.2 + speedScaling * 0.8;
@@ -954,7 +964,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
       damage,
       scoreValue,
       angle: 0,
-      shootCooldown: 90 + Math.random() * 100, // randomized initial shot delay
+      shootCooldown: 30 + Math.random() * 50, // randomized initial shot delay
     });
   };
 
