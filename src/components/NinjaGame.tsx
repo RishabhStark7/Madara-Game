@@ -131,9 +131,9 @@ export default function NinjaGame({ onCloseGame }: Props) {
   // Infinite Parallax Stars Setup (3 layers of static stars that wrap)
   const starLayers = useRef<Array<Array<{ x: number; y: number; opacity: number }>>>([[], [], []]);
 
-  // Boss fight tracking
-  const bossMilestones = [15, 40, 70, 100, 130, 160, 190, 220, 250];
-  const nextBossMilestoneIndex = useRef<number>(0);
+  // Boss fight tracking (endless progression)
+  const nextBossMilestone = useRef<number>(15);
+  const bossCount = useRef<number>(0);
   const activeBoss = useRef<Enemy | null>(null);
   const [bossHUD, setBossHUD] = useState<{ name: string; hp: number; maxHp: number } | null>(null);
 
@@ -258,7 +258,8 @@ export default function NinjaGame({ onCloseGame }: Props) {
     particles.current = [];
     floatingTexts.current = [];
     camera.current = { x: -300, y: -250 };
-    nextBossMilestoneIndex.current = 0;
+    nextBossMilestone.current = 15;
+    bossCount.current = 0;
     activeBoss.current = null;
     setBossHUD(null);
     scoreRef.current = 0;
@@ -281,8 +282,8 @@ export default function NinjaGame({ onCloseGame }: Props) {
       p.ultimateDuration = 210; // 3.5 seconds of ultimate
       p.chakra = 0;
 
-      // Heal player by 35% of max HP (which is 35 HP) for high survivability
-      const healAmount = Math.round(p.maxHp * 0.35);
+      // Heal player by 20% of max HP (which is 20 HP)
+      const healAmount = Math.round(p.maxHp * 0.20);
       p.hp = Math.min(p.maxHp, p.hp + healAmount);
 
       // Create screen flash
@@ -461,8 +462,8 @@ export default function NinjaGame({ onCloseGame }: Props) {
           worldY: p.worldY,
           vx: Math.cos(shootAngle) * 7.5,
           vy: Math.sin(shootAngle) * 7.5,
-          size: 9,
-          damage: 3, // Heavy explosive damage
+          size: 25, // 25px size
+          damage: 8, // Boosted damage
           owner: "player",
           color: "#ff3d00",
           isExplosive: true,
@@ -522,7 +523,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
         }
       });
 
-      const attackRange = p.isUltimateActive ? 165 : 105;
+      const attackRange = p.isUltimateActive ? 280 : 105;
       if (closestEnemy && minDist < attackRange) {
         p.isAttacking = true;
         p.attackCooldown = p.isUltimateActive ? 8 : 18;
@@ -535,17 +536,25 @@ export default function NinjaGame({ onCloseGame }: Props) {
       }
     }
 
-    // 4. Boss Villain Spawning Logic
-    const currentMilestone = bossMilestones[nextBossMilestoneIndex.current];
-    if (scoreRef.current >= currentMilestone && !activeBoss.current) {
-      spawnBoss(canvasWidth, canvasHeight, currentMilestone);
-      nextBossMilestoneIndex.current++;
+    // 4. Boss Villain Spawning Logic (endless milestones)
+    if (scoreRef.current >= nextBossMilestone.current && !activeBoss.current) {
+      spawnBoss(canvasWidth, canvasHeight, nextBossMilestone.current);
+      // Calculate next boss milestone (previous + 25 + 10%)
+      nextBossMilestone.current = nextBossMilestone.current + 25 + Math.floor(nextBossMilestone.current * 0.1);
+    }
+
+    // Time-based difficulty announcement
+    if (frameCount.current > 0 && frameCount.current % 1800 === 0) {
+      addFloatingText(p.worldX, p.worldY - 55, "BANDIT FORCES INTENSIFIED!", "#ffd54f", 17);
     }
 
     // 5. Endless Enemy Spawning (Normal / Fast / Heavy bandits)
+    const difficultyTier = Math.floor(frameCount.current / 1800);
     const baseSpawnRate = Math.max(12, 75 - Math.floor(scoreRef.current / 4));
+    const currentSpawnRate = Math.max(10, Math.floor(baseSpawnRate * Math.pow(0.95, difficultyTier)));
+    
     // Keep max 40 normal enemies on screen at a time
-    if (frameCount.current % baseSpawnRate === 0 && enemies.current.filter(e => e.type !== "boss").length < 40) {
+    if (frameCount.current % currentSpawnRate === 0 && enemies.current.filter(e => e.type !== "boss").length < 40) {
       spawnEnemy(canvasWidth, canvasHeight);
     }
 
@@ -561,7 +570,8 @@ export default function NinjaGame({ onCloseGame }: Props) {
         const dy = p.worldY - proj.worldY;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist < 16) {
+        const playerRadius = p.isUltimateActive ? 40 : 16; // 2.5x player collision scale
+        if (dist < playerRadius) {
           if (p.iFrames === 0) {
             // Bullet hits Madara (only if no active I-frames)
             p.hp = Math.max(0, p.hp - proj.damage);
@@ -672,7 +682,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
           createScreenFlash("rgba(186,104,200,0.1)", 10);
         } else if (enemy.type === "normal" && dist < 380 && Math.random() < 0.12) {
           // Normal bandits shoot occasionally (without lower range block)
-          enemy.shootCooldown = 150 + Math.random() * 90; // shoot cooldown
+          enemy.shootCooldown = Math.round((150 + Math.random() * 90) / (1 + difficultyTier * 0.1));
           projectiles.current.push({
             id: nextProjectileId.current++,
             worldX: enemy.worldX,
@@ -686,7 +696,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
           });
         } else if (enemy.type === "fast" && dist < 340 && Math.random() < 0.1) {
           // Fast bandit fires bullet
-          enemy.shootCooldown = 120 + Math.random() * 60;
+          enemy.shootCooldown = Math.round((120 + Math.random() * 60) / (1 + difficultyTier * 0.1));
           projectiles.current.push({
             id: nextProjectileId.current++,
             worldX: enemy.worldX,
@@ -703,7 +713,8 @@ export default function NinjaGame({ onCloseGame }: Props) {
 
       // Contact Damage on Touching Player
       const contactRadius = enemy.type === "boss" ? 34 : enemy.type === "heavy" ? 22 : 14;
-      if (dist < contactRadius + 12) {
+      const playerHitRadius = p.isUltimateActive ? 30 : 12; // 2.5x player collision scale
+      if (dist < contactRadius + playerHitRadius) {
         // Bounce enemy back
         enemy.worldX -= Math.cos(angle) * 22;
         enemy.worldY -= Math.sin(angle) * 22;
@@ -784,24 +795,24 @@ export default function NinjaGame({ onCloseGame }: Props) {
     createScreenFlash("rgba(255, 61, 0, 0.15)", 8);
     
     // Spawn explosion fire ring
-    for (let i = 0; i < 16; i++) {
-      const theta = (i / 16) * Math.PI * 2;
-      const r = Math.random() * 3 + 2;
+    for (let i = 0; i < 30; i++) {
+      const theta = (i / 30) * Math.PI * 2;
+      const r = Math.random() * 6 + 4;
       particles.current.push({
         worldX,
         worldY,
         vx: Math.cos(theta) * r,
         vy: Math.sin(theta) * r,
         color: ["#ff3d00", "#ff9100", "#ffea00"][Math.floor(Math.random() * 3)],
-        size: Math.random() * 6 + 4,
+        size: Math.random() * 10 + 6,
         alpha: 1.0,
-        decay: 0.02,
+        decay: 0.025,
         type: "fire",
       });
     }
 
     // AoE damage checks
-    const aoeRadius = 85;
+    const aoeRadius = 180;
     enemies.current.forEach((enemy) => {
       const dx = enemy.worldX - worldX;
       const dy = enemy.worldY - worldY;
@@ -838,7 +849,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
 
         if (Math.abs(angleDiff) <= 1.35) { // ~150 degrees front slash
-          const dmg = p.isUltimateActive ? 2.5 : 1;
+          const dmg = p.isUltimateActive ? 6.0 : 1.0;
           enemy.hp -= dmg;
 
           // Knockback (increased to 50px for crowd control)
@@ -947,23 +958,25 @@ export default function NinjaGame({ onCloseGame }: Props) {
     let scoreValue = 1;
 
     const speedScaling = Math.min(scoreRef.current * 0.004, 1.0);
+    const difficultyTier = Math.floor(frameCount.current / 1800);
+    const baseSpeedAddition = difficultyTier * 0.2;
 
     if (roll > 80 && scoreRef.current > 8) {
       type = "heavy";
       hp = 3;
-      speed = 1.2 + speedScaling * 0.4;
+      speed = (1.2 + speedScaling * 0.4) + baseSpeedAddition;
       damage = 3.0;
       scoreValue = 3;
     } else if (roll > 55 && scoreRef.current > 4) {
       type = "fast";
       hp = 1;
-      speed = 3.2 + speedScaling * 0.8;
+      speed = (3.2 + speedScaling * 0.8) + baseSpeedAddition;
       damage = 1.0;
       scoreValue = 2;
     } else {
       type = "normal";
       hp = 1;
-      speed = 2.0 + speedScaling * 0.6;
+      speed = (2.0 + speedScaling * 0.6) + baseSpeedAddition;
       damage = 1.5;
       scoreValue = 1;
     }
@@ -992,7 +1005,8 @@ export default function NinjaGame({ onCloseGame }: Props) {
     const worldX = p.worldX + Math.cos(spawnAngle) * spawnDist;
     const worldY = p.worldY + Math.sin(spawnAngle) * spawnDist;
 
-    const bossIndex = bossMilestones.indexOf(milestoneValue);
+    const bossIndex = bossCount.current;
+    bossCount.current++;
     const bossNames = [
       "Zabuza's Spectre",
       "Kage Orochi",
@@ -1181,10 +1195,12 @@ export default function NinjaGame({ onCloseGame }: Props) {
 
       // Draw local HP bar for regular enemies
       if (enemy.type !== "boss" && enemy.hp < enemy.maxHp) {
+        const radius = enemy.type === "heavy" ? 20 : enemy.type === "fast" ? 11 : 14;
+        const barY = ry - radius * 1.3;
         ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(rx - 15, ry - 25, 30, 4);
+        ctx.fillRect(rx - 15, barY, 30, 4);
         ctx.fillStyle = "#ff1744";
-        ctx.fillRect(rx - 15, ry - 25, (enemy.hp / enemy.maxHp) * 30, 4);
+        ctx.fillRect(rx - 15, barY, (enemy.hp / enemy.maxHp) * 30, 4);
       }
 
       drawBandit(ctx, rx, ry, enemy.angle, enemy.type);
@@ -1200,7 +1216,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
       ctx.translate(px, py);
       ctx.rotate(player.current.angle);
 
-      const slashRange = player.current.isUltimateActive ? 160 : 100;
+      const slashRange = player.current.isUltimateActive ? 280 : 100;
       const slashGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, slashRange);
       slashGrad.addColorStop(0, "rgba(0,0,0,0)");
       slashGrad.addColorStop(0.7, player.current.isUltimateActive ? "rgba(224, 64, 251, 0.3)" : "rgba(0, 229, 255, 0.25)");
@@ -1278,7 +1294,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
     });
   };
 
-  // Draw Madara Uchiha with distinct face and long signature spiky hair
+  // Draw Madara Uchiha standing upright from eye-level
   const drawMadara = (
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -1290,187 +1306,215 @@ export default function NinjaGame({ onCloseGame }: Props) {
   ) => {
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angle);
 
-    // 1. Draw Trademark flowing long spiky hair (Madara's long locks flowing behind)
-    ctx.fillStyle = "#090412"; // Charcoal black
+    // Apply ultimate scale (4x)
+    if (isUltimate) {
+      ctx.scale(4.0, 4.0);
+    }
+
+    // Determine horizontal facing direction (flip if facing left)
+    const facingLeft = Math.cos(angle) < 0;
+    if (facingLeft) {
+      ctx.scale(-1, 1);
+    }
+
+    // Walking/Running animation based on player speed and frame count
+    const isMoving = isUltimate ? true : (player.current.speed > 0);
+    const walkCycle = isMoving ? (frame * 0.2) : 0;
+    const bobY = isMoving ? Math.sin(walkCycle) * 2.5 : 0;
+
+    // --- DRAW MADARA ---
+    // 1. Draw Trademark long spiky hair (flows back behind character)
+    ctx.fillStyle = "#0e091a"; // Deep charcoal/black
     ctx.beginPath();
-    // Center-top of head anchor
-    ctx.moveTo(3, -9);
-    // Spiky mane structure (top, back, bottom spikes matching the reference)
-    ctx.lineTo(-2, -14); // Left side top spike
-    ctx.lineTo(-8, -12);
-    ctx.lineTo(-12, -22); // Outer left spike
-    ctx.lineTo(-15, -14);
-    ctx.lineTo(-26, -24); // Back-left flowing spike
-    ctx.lineTo(-22, -10);
-    ctx.lineTo(-44, -18); // Long back-left trail
-    ctx.lineTo(-32, -4);
-    ctx.lineTo(-50, -6);  // Long center-back trail (longest)
-    ctx.lineTo(-34, 2);
-    ctx.lineTo(-44, 12);  // Long back-right trail
-    ctx.lineTo(-22, 8);
-    ctx.lineTo(-28, 20);  // Back-right flowing spike
-    ctx.lineTo(-14, 12);
-    ctx.lineTo(-14, 20);  // Outer right spike
-    ctx.lineTo(-8, 10);
-    ctx.lineTo(-3, 13);   // Right side top spike
-    ctx.lineTo(2, 7);
+    ctx.moveTo(-2, -22 + bobY); // head center
+    ctx.lineTo(-8, -25 + bobY);
+    ctx.lineTo(-14, -20 + bobY);
+    ctx.lineTo(-10, -12 + bobY);
+    ctx.lineTo(-18, -15 + bobY);
+    ctx.lineTo(-24, -5 + bobY);  // long spikes flowing backwards
+    ctx.lineTo(-18, 0 + bobY);
+    ctx.lineTo(-26, 5 + bobY);   // lower long spike
+    ctx.lineTo(-16, 8 + bobY);
+    ctx.lineTo(-22, 14 + bobY);  // lowest spike
+    ctx.lineTo(-10, 10 + bobY);
+    ctx.lineTo(-5, 5 + bobY);
     ctx.closePath();
     ctx.fill();
 
-    // 2. Undergarments (Dark purple collar & sleeves)
-    ctx.fillStyle = "#1e1136"; // Deep purple
-    ctx.beginPath();
-    ctx.arc(0, 0, 14, 0, Math.PI * 2);
-    ctx.fill();
+    // 2. Legs (with walk cycle)
+    ctx.strokeStyle = "#1a0f30"; // dark navy pants
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
 
-    // 3. Segmented Red Samurai Armor (Reference: Red chestplate, shoulder sode, waist kusazuri)
-    ctx.fillStyle = "#8a1010"; // Crimson red armor
-    
-    // Main Chestplate (with horizontal divisions/lines)
+    const legLeftAngle = isMoving ? Math.sin(walkCycle) * 0.4 : 0;
+    const legRightAngle = isMoving ? -Math.sin(walkCycle) * 0.4 : 0;
+
+    // Left leg
     ctx.beginPath();
-    ctx.arc(0, 0, 11, -Math.PI / 2, Math.PI / 2);
-    ctx.fill();
-    // Draw horizontal panel lines on chestplate
+    ctx.moveTo(-3, 8 + bobY);
+    ctx.lineTo(-3 + Math.sin(legLeftAngle) * 8, 16 + bobY);
+    ctx.stroke();
+
+    // Right leg
+    ctx.beginPath();
+    ctx.moveTo(3, 8 + bobY);
+    ctx.lineTo(3 + Math.sin(legRightAngle) * 8, 16 + bobY);
+    ctx.stroke();
+
+    // Shinobi sandals/feet
+    ctx.fillStyle = "#cfd8dc"; // light sandals
+    // Left foot
+    ctx.fillRect(-5 + Math.sin(legLeftAngle) * 8, 15 + bobY, 4, 2);
+    // Right foot
+    ctx.fillRect(1 + Math.sin(legRightAngle) * 8, 15 + bobY, 4, 2);
+
+    // 3. Torso & Underclothing (Navy blue shirt/robe)
+    ctx.fillStyle = "#1e1136"; // Deep purple/navy
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(-7, -10 + bobY, 14, 18, 4);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.rect(-7, -10 + bobY, 14, 18);
+      ctx.fill();
+    }
+
+    // 4. Segmented Red Samurai Armor (Crimson plate armor over torso)
+    ctx.fillStyle = "#8a1010"; // Crimson red
+    // Chestplate
+    ctx.fillRect(-6, -8 + bobY, 12, 10);
+    // Shoulder guards (Sode)
+    ctx.fillRect(-9, -9 + bobY, 4, 5);
+    ctx.fillRect(5, -9 + bobY, 4, 5);
+
+    // Outline and plate dividers
     ctx.strokeStyle = "#3a0303";
     ctx.lineWidth = 1;
+    ctx.strokeRect(-6, -8 + bobY, 12, 10);
+    ctx.strokeRect(-9, -9 + bobY, 4, 5);
+    ctx.strokeRect(5, -9 + bobY, 4, 5);
+
+    // Horizontal plate lines on chest
     ctx.beginPath();
-    ctx.moveTo(0, -11);
-    ctx.lineTo(0, 11);
-    ctx.moveTo(4, -9.5);
-    ctx.lineTo(4, 9.5);
-    ctx.moveTo(-4, -9.5);
-    ctx.lineTo(-4, 9.5);
+    ctx.moveTo(-6, -5 + bobY);
+    ctx.lineTo(6, -5 + bobY);
+    ctx.moveTo(-6, -2 + bobY);
+    ctx.lineTo(6, -2 + bobY);
+    ctx.moveTo(-6, 1 + bobY);
+    ctx.lineTo(6, 1 + bobY);
     ctx.stroke();
 
-    // Sode (Shoulder Guards) - Segmented plates on left/right shoulders
-    // Left Shoulder Sode
+    // Red Waist Plates (Kusazuri)
     ctx.fillStyle = "#8a1010";
-    ctx.fillRect(-7, -16, 6, 5);
-    ctx.fillStyle = "#700a0a";
-    ctx.fillRect(-5, -16, 2, 5);
-    ctx.strokeStyle = "#3a0303";
-    ctx.strokeRect(-7, -16, 6, 5);
-    
-    // Right Shoulder Sode
-    ctx.fillStyle = "#8a1010";
-    ctx.fillRect(-7, 11, 6, 5);
-    ctx.fillStyle = "#700a0a";
-    ctx.fillRect(-5, 11, 2, 5);
-    ctx.strokeStyle = "#3a0303";
-    ctx.strokeRect(-7, 11, 6, 5);
-
-    // Kusazuri (Waist armor hanging down)
-    // Front hanging plate
-    ctx.fillStyle = "#8a1010";
-    ctx.fillRect(-15, -4, 4, 8);
-    ctx.strokeStyle = "#3a0303";
-    ctx.strokeRect(-15, -4, 4, 8);
-    // Panel lines on tassets
+    ctx.fillRect(-7, 2 + bobY, 14, 6);
+    ctx.strokeRect(-7, 2 + bobY, 14, 6);
     ctx.beginPath();
-    ctx.moveTo(-15, 0);
-    ctx.lineTo(-11, 0);
+    ctx.moveTo(0, 2 + bobY);
+    ctx.lineTo(0, 8 + bobY);
     ctx.stroke();
 
-    // Side hanging tassets
-    ctx.fillStyle = "#700a0a";
-    ctx.fillRect(-14, -9, 3, 4);
-    ctx.fillRect(-14, 5, 3, 4);
-    ctx.strokeStyle = "#3a0303";
-    ctx.strokeRect(-14, -9, 3, 4);
-    ctx.strokeRect(-14, 5, 3, 4);
-
-    // 4. Visible Pale Skin Face
-    ctx.fillStyle = "#fce4ec";
+    // 5. Head & Face (Pale skin, shifted slightly forward)
+    ctx.fillStyle = "#fce4ec"; // Pale pinkish skin
     ctx.beginPath();
-    ctx.arc(5, 0, 7.5, 0, Math.PI * 2);
+    ctx.arc(2, -15 + bobY, 6, 0, Math.PI * 2);
     ctx.fill();
 
-    // 5. Signature bangs covering right eye (y negative side)
-    ctx.fillStyle = "#090412";
+    // Front bangs covering right eye
+    ctx.fillStyle = "#0e091a"; // Black bangs
     ctx.beginPath();
-    ctx.moveTo(3, -7);
-    ctx.quadraticCurveTo(9, -7, 11.5, -2); // Hangs down over the face
-    ctx.quadraticCurveTo(8, -2, 5, -5);
+    ctx.moveTo(0, -21 + bobY);
+    ctx.quadraticCurveTo(4, -20, 6, -15 + bobY);
+    ctx.quadraticCurveTo(3, -13, 0, -16 + bobY);
     ctx.closePath();
     ctx.fill();
 
-    // Extra lock draping down the middle/side
+    // Mid bangs draping forward
     ctx.beginPath();
-    ctx.moveTo(4, -8);
-    ctx.quadraticCurveTo(9, -2, 12, 1.5);
-    ctx.quadraticCurveTo(6, 1, 3, -4);
+    ctx.moveTo(2, -21 + bobY);
+    ctx.quadraticCurveTo(6, -17, 7, -12 + bobY);
+    ctx.quadraticCurveTo(4, -12, 2, -16 + bobY);
     ctx.closePath();
     ctx.fill();
 
-    // 6. Left eye (y positive side) is a red Sharingan (red iris, black pupil)
+    // Left eye - Red Sharingan
     ctx.fillStyle = "#ff1744"; // Sharingan Red
     ctx.beginPath();
-    ctx.arc(8.5, 2.5, 1.5, 0, Math.PI * 2);
+    ctx.arc(5, -15 + bobY, 1.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#000000"; // Pupil
     ctx.beginPath();
-    ctx.arc(8.5, 2.5, 0.6, 0, Math.PI * 2);
+    ctx.arc(5, -15 + bobY, 0.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // 7. Draw Katana weapon
-    ctx.strokeStyle = "#eceff1";
-    ctx.lineWidth = 2;
+    // 6. Draw Katana weapon
+    ctx.strokeStyle = "#eceff1"; // Silver blade
+    ctx.lineWidth = 1.8;
     if (isAttacking) {
       ctx.save();
       const swingProgress = (frame % 8) / 8;
-      const swordAngle = -Math.PI / 3 + swingProgress * (Math.PI * 0.85);
-
+      const swordAngle = -Math.PI / 4 + swingProgress * (Math.PI * 0.7);
+      ctx.translate(4, -2 + bobY);
+      ctx.rotate(swordAngle);
+      
+      // Draw sword blade
       ctx.beginPath();
-      ctx.moveTo(8, 4);
-      ctx.lineTo(8 + Math.cos(swordAngle) * 35, 4 + Math.sin(swordAngle) * 35);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(26, 0);
       ctx.stroke();
-
-      ctx.strokeStyle = "#ffd54f"; // gold hilt
-      ctx.lineWidth = 3;
+      
+      // Hilt
+      ctx.strokeStyle = "#ffd54f"; // Gold hilt
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.moveTo(8, 4);
-      ctx.lineTo(8 + Math.cos(swordAngle) * 6, 4 + Math.sin(swordAngle) * 6);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(5, 0);
       ctx.stroke();
       ctx.restore();
     } else {
-      // Sheathed katana
-      ctx.strokeStyle = "#90a4ae";
+      // Sheathed katana on waist
+      ctx.strokeStyle = "#90a4ae"; // Sheath
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(-9, 8);
-      ctx.lineTo(-24, 19);
+      ctx.moveTo(-5, 2 + bobY);
+      ctx.lineTo(-16, 9 + bobY);
       ctx.stroke();
-      ctx.strokeStyle = "#212121";
-      ctx.lineWidth = 3.2;
+      
+      ctx.strokeStyle = "#212121"; // Hilt
       ctx.beginPath();
-      ctx.moveTo(-8, 7);
-      ctx.lineTo(-21, 16);
+      ctx.moveTo(-5, 2 + bobY);
+      ctx.lineTo(-1, 0 + bobY);
       ctx.stroke();
     }
 
-    // 8. Susanoo Aura Frame (Ribcage wraps around him in ultimate mode)
+    // 7. Susanoo Aura Frame (glowing ribcage wraps around him in ultimate mode)
     if (isUltimate) {
       ctx.save();
-      ctx.strokeStyle = "rgba(186, 104, 200, 0.75)";
+      ctx.strokeStyle = "rgba(186, 104, 200, 0.85)";
       ctx.fillStyle = "rgba(186, 104, 200, 0.05)";
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 1.2;
 
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 15;
       ctx.shadowColor = "#e040fb";
 
       // Susanoo Outer Ribcage
       ctx.beginPath();
-      ctx.arc(0, 0, 24, -Math.PI/2, Math.PI/2);
+      ctx.arc(0, 0, 18, -Math.PI * 0.7, Math.PI * 0.7);
+      ctx.stroke();
+
+      // Rib bone arcs
+      ctx.beginPath();
+      ctx.arc(0, -6, 15, -Math.PI * 0.6, Math.PI * 0.6);
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.arc(-6, 0, 20, -Math.PI/3, Math.PI/3);
+      ctx.arc(0, 6, 15, -Math.PI * 0.6, Math.PI * 0.6);
       ctx.stroke();
 
       // Skeletal shoulder points
-      ctx.strokeRect(-16, -24, 6, 6);
-      ctx.strokeRect(-16, 18, 6, 6);
+      ctx.strokeRect(-10, -15, 3, 3);
+      ctx.strokeRect(-10, 12, 3, 3);
 
       ctx.restore();
     }
@@ -1478,7 +1522,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
     ctx.restore();
   };
 
-  // Draw Bandits
+  // Draw Bandits standing upright facing player
   const drawBandit = (
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -1488,73 +1532,138 @@ export default function NinjaGame({ onCloseGame }: Props) {
   ) => {
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angle);
+
+    // Face left/right based on angle (towards player)
+    const facingLeft = Math.cos(angle) < 0;
+    if (facingLeft) {
+      ctx.scale(-1, 1);
+    }
 
     const radius = type === "boss" ? 30 : type === "heavy" ? 20 : type === "fast" ? 11 : 14;
+    // Walk cycle based on frameCount (slightly offset by radius)
+    const walkCycle = (frameCount.current * 0.15 + radius) % (Math.PI * 2);
+    const bobY = Math.sin(walkCycle) * 1.5;
 
     // Red Boss flame aura
     if (type === "boss") {
       ctx.strokeStyle = "rgba(255, 61, 0, 0.45)";
-      ctx.lineWidth = 2.5;
-      ctx.shadowBlur = 10;
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 12;
       ctx.shadowColor = "#ff3d00";
       ctx.beginPath();
-      ctx.arc(0, 0, radius + 6, 0, Math.PI * 2);
+      ctx.arc(0, 0, radius * 1.3, 0, Math.PI * 2);
       ctx.stroke();
       ctx.shadowBlur = 0;
     }
 
-    // Bandit Robe base
+    // 1. Legs (Walk cycle)
+    ctx.strokeStyle = "#121212";
+    ctx.lineWidth = type === "boss" ? 6 : type === "heavy" ? 5 : 3;
+    ctx.lineCap = "round";
+
+    const legLeftAngle = Math.sin(walkCycle) * 0.4;
+    const legRightAngle = -Math.sin(walkCycle) * 0.4;
+
+    // Left leg
+    ctx.beginPath();
+    ctx.moveTo(-radius * 0.3, radius * 0.5 + bobY);
+    ctx.lineTo(-radius * 0.3 + Math.sin(legLeftAngle) * radius * 0.5, radius * 1.1 + bobY);
+    ctx.stroke();
+
+    // Right leg
+    ctx.beginPath();
+    ctx.moveTo(radius * 0.3, radius * 0.5 + bobY);
+    ctx.lineTo(radius * 0.3 + Math.sin(legRightAngle) * radius * 0.5, radius * 1.1 + bobY);
+    ctx.stroke();
+
+    // 2. Body / Robe
     ctx.fillStyle = type === "boss" ? "#0a0012" : type === "heavy" ? "#141414" : "#282828";
-    ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    ctx.fill();
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(-radius * 0.6, -radius * 0.8 + bobY, radius * 1.2, radius * 1.4, radius * 0.3);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.rect(-radius * 0.6, -radius * 0.8 + bobY, radius * 1.2, radius * 1.4);
+      ctx.fill();
+    }
 
-    // Darkened shadow head hood
-    ctx.fillStyle = "#121212";
-    ctx.beginPath();
-    ctx.arc(radius * 0.2, 0, radius * 0.65, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Red scarf/sash belt details
+    // Details on body (scarf/belts)
     if (type === "fast") {
+      // Scout: Red scarf draping backwards
       ctx.fillStyle = "#b71c1c";
       ctx.beginPath();
-      ctx.moveTo(-radius * 0.4, radius * 0.4);
-      ctx.lineTo(-radius * 1.3, radius * 0.8);
-      ctx.lineTo(-radius * 0.7, 0);
+      ctx.moveTo(-radius * 0.2, -radius * 0.5 + bobY);
+      ctx.lineTo(-radius * 1.2, -radius * 0.2 + bobY);
+      ctx.lineTo(-radius * 0.5, -radius * 0.1 + bobY);
       ctx.closePath();
       ctx.fill();
     } else if (type === "heavy") {
-      ctx.fillStyle = "#3c0a54"; // purple plate belt
-      ctx.fillRect(-3, -radius, 6, radius * 2);
+      // Heavy: Purple armor plate and bulkier appearance
+      ctx.fillStyle = "#3c0a54"; // Purple chestplates
+      ctx.fillRect(-radius * 0.5, -radius * 0.5 + bobY, radius * 1.0, radius * 0.4);
+      ctx.strokeStyle = "#12021c";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-radius * 0.5, -radius * 0.5 + bobY, radius * 1.0, radius * 0.4);
     } else if (type === "boss") {
-      // Golden Crown Spikes for Boss
+      // Boss: Red and Purple tattered cape
+      ctx.fillStyle = "#b71c1c";
+      ctx.beginPath();
+      ctx.moveTo(-radius * 0.5, -radius * 0.6 + bobY);
+      ctx.lineTo(-radius * 1.5, radius * 0.8 + bobY);
+      ctx.lineTo(-radius * 0.3, radius * 0.2 + bobY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Golden Crown Spikes on Head
       ctx.fillStyle = "#ffd54f";
       ctx.beginPath();
-      ctx.moveTo(-radius * 0.8, -radius * 0.8);
-      ctx.lineTo(-radius * 0.4, -radius * 1.2);
-      ctx.lineTo(0, -radius * 0.8);
-      ctx.lineTo(radius * 0.4, -radius * 1.2);
-      ctx.lineTo(radius * 0.8, -radius * 0.8);
+      ctx.moveTo(-radius * 0.5, -radius * 1.4 + bobY);
+      ctx.lineTo(-radius * 0.3, -radius * 1.8 + bobY);
+      ctx.lineTo(0, -radius * 1.4 + bobY);
+      ctx.lineTo(radius * 0.3, -radius * 1.8 + bobY);
+      ctx.lineTo(radius * 0.5, -radius * 1.4 + bobY);
       ctx.closePath();
       ctx.fill();
     }
 
-    // Glowing eyes (Red for heavy/boss, Cyan for fast, White for normal)
-    ctx.fillStyle = (type === "boss" || type === "heavy") ? "#ff1744" : type === "fast" ? "#00e5ff" : "#ffffff";
+    // 3. Head Hood (Darkened face area)
+    ctx.fillStyle = "#121212";
     ctx.beginPath();
-    ctx.arc(radius * 0.4, -radius * 0.2, 1.6, 0, Math.PI * 2);
-    ctx.arc(radius * 0.4, radius * 0.2, 1.6, 0, Math.PI * 2);
+    ctx.arc(radius * 0.1, -radius * 0.9 + bobY, radius * 0.45, 0, Math.PI * 2);
     ctx.fill();
 
-    // Weapon
-    ctx.strokeStyle = type === "boss" ? "#ffb300" : "#90a4ae";
-    ctx.lineWidth = type === "boss" ? 4.0 : type === "heavy" ? 3.0 : 1.8;
+    // Hood trim
+    ctx.strokeStyle = type === "boss" ? "#b71c1c" : type === "heavy" ? "#3c0a54" : "#424242";
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(radius * 0.4, radius * 0.4);
-    ctx.lineTo(radius * 1.25, radius * 0.55);
+    ctx.arc(radius * 0.1, -radius * 0.9 + bobY, radius * 0.45, -Math.PI * 0.8, Math.PI * 0.8);
     ctx.stroke();
+
+    // 4. Glowing eyes (Red for heavy/boss, Cyan for fast, White for normal)
+    ctx.fillStyle = (type === "boss" || type === "heavy") ? "#ff1744" : type === "fast" ? "#00e5ff" : "#ffffff";
+    ctx.beginPath();
+    ctx.arc(radius * 0.25, -radius * 0.95 + bobY, radius * 0.08, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 5. Weapon
+    ctx.strokeStyle = type === "boss" ? "#ffb300" : "#90a4ae";
+    ctx.lineWidth = type === "boss" ? 3.5 : type === "heavy" ? 3.0 : 1.8;
+    ctx.lineCap = "round";
+    
+    // Draw weapon facing forward
+    ctx.beginPath();
+    ctx.moveTo(radius * 0.3, -radius * 0.2 + bobY);
+    ctx.lineTo(radius * 1.1, -radius * 0.1 + bobY);
+    ctx.stroke();
+
+    // Crossguard for boss / heavy weapon
+    if (type === "boss" || type === "heavy") {
+      ctx.beginPath();
+      ctx.moveTo(radius * 0.55, -radius * 0.35 + bobY);
+      ctx.lineTo(radius * 0.5, -radius * 0.05 + bobY);
+      ctx.stroke();
+    }
 
     ctx.restore();
   };
