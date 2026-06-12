@@ -16,6 +16,7 @@ interface Player {
   attackCooldown: number;
   isUltimateActive: boolean;
   ultimateDuration: number;
+  iFrames: number;
 }
 
 interface Enemy {
@@ -118,6 +119,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
     attackCooldown: 0,
     isUltimateActive: false,
     ultimateDuration: 0,
+    iFrames: 0,
   });
 
   const enemies = useRef<Enemy[]>([]);
@@ -249,6 +251,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
       attackCooldown: 0,
       isUltimateActive: false,
       ultimateDuration: 0,
+      iFrames: 0,
     };
     enemies.current = [];
     projectiles.current = [];
@@ -278,8 +281,8 @@ export default function NinjaGame({ onCloseGame }: Props) {
       p.ultimateDuration = 210; // 3.5 seconds of ultimate
       p.chakra = 0;
 
-      // Heal player by 20% of max HP (which is 20 HP)
-      const healAmount = Math.round(p.maxHp * 0.2);
+      // Heal player by 35% of max HP (which is 35 HP) for high survivability
+      const healAmount = Math.round(p.maxHp * 0.35);
       p.hp = Math.min(p.maxHp, p.hp + healAmount);
 
       // Create screen flash
@@ -377,6 +380,11 @@ export default function NinjaGame({ onCloseGame }: Props) {
     const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
 
     const p = player.current;
+
+    // Decrement I-frames
+    if (p.iFrames > 0) {
+      p.iFrames--;
+    }
 
     // 1. Move Player
     let moveX = 0;
@@ -514,10 +522,10 @@ export default function NinjaGame({ onCloseGame }: Props) {
         }
       });
 
-      const attackRange = p.isUltimateActive ? 150 : 90;
+      const attackRange = p.isUltimateActive ? 165 : 105;
       if (closestEnemy && minDist < attackRange) {
         p.isAttacking = true;
-        p.attackCooldown = p.isUltimateActive ? 12 : 28;
+        p.attackCooldown = p.isUltimateActive ? 8 : 18;
 
         const enemy = closestEnemy as Enemy;
         const attackAngle = Math.atan2(enemy.worldY - p.worldY, enemy.worldX - p.worldX);
@@ -554,11 +562,14 @@ export default function NinjaGame({ onCloseGame }: Props) {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < 16) {
-          // Bullet hits Madara
-          p.hp -= proj.damage; // 0.5 HP damage
-          addFloatingText(p.worldX, p.worldY - 20, `-${proj.damage}`, "#ff1744", 14);
+          if (p.iFrames === 0) {
+            // Bullet hits Madara (only if no active I-frames)
+            p.hp = Math.max(0, p.hp - proj.damage);
+            addFloatingText(p.worldX, p.worldY - 20, `-${proj.damage}`, "#ff1744", 14);
+            p.iFrames = 20; // Trigger I-frames (about 0.33s)
+          }
 
-          // Impact spark particles
+          // Impact spark particles (always spawn on hit)
           for (let i = 0; i < 4; i++) {
             particles.current.push({
               worldX: p.worldX,
@@ -697,8 +708,11 @@ export default function NinjaGame({ onCloseGame }: Props) {
         enemy.worldX -= Math.cos(angle) * 22;
         enemy.worldY -= Math.sin(angle) * 22;
 
-        p.hp -= enemy.damage;
-        addFloatingText(p.worldX, p.worldY - 20, `-${enemy.damage}`, "#ff1744", 15);
+        if (p.iFrames === 0) {
+          p.hp = Math.max(0, p.hp - enemy.damage);
+          addFloatingText(p.worldX, p.worldY - 20, `-${enemy.damage}`, "#ff1744", 15);
+          p.iFrames = 25; // Trigger I-frames
+        }
 
         for (let i = 0; i < 5; i++) {
           particles.current.push({
@@ -721,9 +735,10 @@ export default function NinjaGame({ onCloseGame }: Props) {
         if (p.hp <= 0) {
           p.hp = 0;
           setGameState("gameover");
-          if (score > highScore) {
-            setHighScore(score);
-            localStorage.setItem("ninja_highscore", score.toString());
+          if (scoreRef.current > highScoreRef.current) {
+            highScoreRef.current = scoreRef.current;
+            setHighScore(scoreRef.current);
+            localStorage.setItem("ninja_highscore", scoreRef.current.toString());
           }
         }
       }
@@ -826,9 +841,9 @@ export default function NinjaGame({ onCloseGame }: Props) {
           const dmg = p.isUltimateActive ? 2.5 : 1;
           enemy.hp -= dmg;
 
-          // Knockback
-          enemy.worldX += Math.cos(enemyAngle) * 30;
-          enemy.worldY += Math.sin(enemyAngle) * 30;
+          // Knockback (increased to 50px for crowd control)
+          enemy.worldX += Math.cos(enemyAngle) * 50;
+          enemy.worldY += Math.sin(enemyAngle) * 50;
 
           // Slash Sparks
           for (let i = 0; i < 4; i++) {
@@ -909,9 +924,9 @@ export default function NinjaGame({ onCloseGame }: Props) {
       addFloatingText(p.worldX, p.worldY - 60, "BOSS DEFEATED!", "#ffea00", 24);
       createScreenFlash("rgba(0, 229, 255, 0.25)", 25);
       
-      // Heal player on boss defeat as a reward
-      p.hp = Math.min(p.maxHp, p.hp + 15);
-      addFloatingText(p.worldX, p.worldY - 40, "+15 HP Reward", "#00e676", 16);
+      // Heal player on boss defeat as a reward (+30 HP)
+      p.hp = Math.min(p.maxHp, p.hp + 30);
+      addFloatingText(p.worldX, p.worldY - 40, "+30 HP Reward", "#00e676", 16);
     }
   };
 
@@ -928,7 +943,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
     let type: "normal" | "fast" | "heavy" = "normal";
     let hp = 1;
     let speed = 2.0;
-    let damage = 5; // standard contact damage
+    let damage = 1.5; // standard contact damage
     let scoreValue = 1;
 
     const speedScaling = Math.min(scoreRef.current * 0.004, 1.0);
@@ -937,19 +952,19 @@ export default function NinjaGame({ onCloseGame }: Props) {
       type = "heavy";
       hp = 3;
       speed = 1.2 + speedScaling * 0.4;
-      damage = 10;
+      damage = 3.0;
       scoreValue = 3;
     } else if (roll > 55 && scoreRef.current > 4) {
       type = "fast";
       hp = 1;
       speed = 3.2 + speedScaling * 0.8;
-      damage = 4;
+      damage = 1.0;
       scoreValue = 2;
     } else {
       type = "normal";
       hp = 1;
       speed = 2.0 + speedScaling * 0.6;
-      damage = 5;
+      damage = 1.5;
       scoreValue = 1;
     }
 
@@ -997,7 +1012,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
       hp: bossHp,
       maxHp: bossHp,
       speed: 1.4,
-      damage: 15,
+      damage: 5.0,
       scoreValue: 10,
       angle: 0,
       shootCooldown: 40,
@@ -1185,7 +1200,7 @@ export default function NinjaGame({ onCloseGame }: Props) {
       ctx.translate(px, py);
       ctx.rotate(player.current.angle);
 
-      const slashRange = player.current.isUltimateActive ? 145 : 85;
+      const slashRange = player.current.isUltimateActive ? 160 : 100;
       const slashGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, slashRange);
       slashGrad.addColorStop(0, "rgba(0,0,0,0)");
       slashGrad.addColorStop(0.7, player.current.isUltimateActive ? "rgba(224, 64, 251, 0.3)" : "rgba(0, 229, 255, 0.25)");
@@ -1201,6 +1216,13 @@ export default function NinjaGame({ onCloseGame }: Props) {
       ctx.restore();
     }
 
+    // Flicker player if invulnerable (taking damage)
+    const isPlayerFlickering = player.current.iFrames > 0 && Math.floor(frameCount.current / 4) % 2 === 0;
+    if (isPlayerFlickering) {
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+    }
+
     drawMadara(
       ctx,
       px,
@@ -1210,6 +1232,10 @@ export default function NinjaGame({ onCloseGame }: Props) {
       player.current.isAttacking,
       player.current.isUltimateActive
     );
+
+    if (isPlayerFlickering) {
+      ctx.restore();
+    }
 
     // 7. Draw Floating Indicators (e.g. +1, -12 HP)
     floatingTexts.current.forEach((text) => {
