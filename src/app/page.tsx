@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import NinjaGame from "@/components/NinjaGame";
+import AvengerGame from "@/components/AvengerGame";
 import FeaturedContent from "@/components/FeaturedContent";
 
 export default function Home() {
@@ -27,17 +27,17 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#030107] to-[#0f071e] text-[#f4effa]">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#0b0f19] to-[#111827] text-[#f8fafc]">
       {/* Navigation Header */}
-      <header className="sticky top-0 z-40 w-full glass-panel border-b border-cyan-950/20 px-6 py-4 flex justify-between items-center">
+      <header className="sticky top-0 z-40 w-full glass-panel border-b border-slate-850 px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-purple-800 to-cyan-600 border border-cyan-500/25 flex items-center justify-center font-bold font-mono text-sm text-white">
-            M
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-slate-700 to-slate-800 border border-slate-600 flex items-center justify-center font-bold font-mono text-sm text-slate-100">
+            I
           </div>
           <div>
-            <span className="font-extrabold text-cyan-400 tracking-wider text-base font-mono uppercase glow-text-cyan">Cosmic Arena</span>
-            <span className="hidden sm:inline-block ml-2 text-[10px] text-purple-400 font-mono tracking-widest uppercase bg-purple-950/35 px-2 py-0.5 rounded border border-purple-900/40">
-              Space Stand
+            <span className="font-extrabold text-slate-100 tracking-wider text-base font-mono uppercase">Stark Arena</span>
+            <span className="hidden sm:inline-block ml-2 text-[10px] text-slate-350 font-mono tracking-widest uppercase bg-slate-800/40 px-2 py-0.5 rounded border border-slate-700">
+              Bot Invasion
             </span>
           </div>
         </div>
@@ -45,22 +45,22 @@ export default function Home() {
         <nav className="flex items-center gap-4">
           <a
             href="#featured-content"
-            className="text-xs font-semibold uppercase tracking-wider text-zinc-400 hover:text-cyan-400 transition-colors font-mono"
+            className="text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-100 transition-colors font-mono"
           >
             Archives
           </a>
           {!isGameOpen ? (
             <button
               onClick={handleOpenGame}
-              className="px-4 py-2 text-xs font-extrabold uppercase tracking-widest bg-cyan-900/15 hover:bg-cyan-900/35 border border-cyan-500/30 text-cyan-400 rounded-lg transition-all hover:scale-105 active:scale-95 font-mono flex items-center gap-1.5"
+              className="px-4 py-2 text-xs font-extrabold uppercase tracking-widest bg-slate-800/30 hover:bg-slate-800/60 border border-slate-700 text-slate-200 rounded-lg transition-all hover:scale-105 active:scale-95 font-mono flex items-center gap-1.5"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-ping" />
+              <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-ping" />
               Re-open Arena
             </button>
           ) : (
             <button
               onClick={handleCloseGame}
-              className="px-4 py-2 text-xs font-semibold uppercase tracking-widest glass-panel text-cyan-400 hover:text-cyan-300 rounded-lg hover:bg-cyan-950/25 transition-all font-mono"
+              className="px-4 py-2 text-xs font-semibold uppercase tracking-widest glass-panel text-slate-200 hover:text-slate-100 rounded-lg hover:bg-slate-800/40 transition-all font-mono"
             >
               Close Arena
             </button>
@@ -72,33 +72,33 @@ export default function Home() {
       <main className="flex-1 w-full flex flex-col items-center">
         {/* Game Container Section with collapsible height animation */}
         <div
-          className={`w-full max-w-6xl px-4 sm:px-6 lg:px-8 pt-8 transition-all duration-700 ease-in-out overflow-hidden
+          className={`w-full max-w-6xl px-2 landscape:px-4 sm:px-6 lg:px-8 pt-4 landscape:pt-2 sm:pt-8 transition-all duration-700 ease-in-out overflow-hidden
             ${
               isGameOpen
-                ? "opacity-100 max-h-[700px] mb-8"
+                ? "opacity-100 max-h-[800px] mb-4 sm:mb-8"
                 : "opacity-0 max-h-0 mb-0 pointer-events-none"
             }
           `}
         >
-          {isGameOpen && <NinjaGame onCloseGame={handleCloseGame} />}
+          {isGameOpen && <AvengerGame onCloseGame={handleCloseGame} />}
         </div>
 
         {/* Small header reminder if game is closed */}
         {!isGameOpen && (
           <div className="w-full max-w-6xl px-4 sm:px-6 lg:px-8 mt-6">
-            <div className="p-4 rounded-xl glass-panel-glow border-purple-950/20 bg-purple-950/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="p-4 rounded-xl glass-panel border-slate-850 bg-slate-900/5 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <span className="flex h-3 w-3 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-slate-500"></span>
                 </span>
-                <p className="text-xs text-zinc-400 font-sans">
-                  The cosmic battle arena has been closed. Ready to jump back into space battle as Madara?
+                <p className="text-xs text-slate-400 font-sans">
+                  The cyber battle arena has been closed. Ready to launch back into space battle as Iron Man?
                 </p>
               </div>
               <button
                 onClick={handleOpenGame}
-                className="w-full sm:w-auto px-5 py-2 text-xs font-extrabold uppercase tracking-widest bg-gradient-to-r from-purple-800 to-cyan-600 hover:from-purple-700 hover:to-cyan-500 text-cyan-100 rounded-lg border border-cyan-500/20 transition-all hover:scale-105 active:scale-95 font-mono"
+                className="w-full sm:w-auto px-5 py-2 text-xs font-extrabold uppercase tracking-widest bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-750 text-slate-200 rounded-lg border border-slate-650 transition-all hover:scale-105 active:scale-95 font-mono"
               >
                 Launch Arena
               </button>
@@ -107,7 +107,7 @@ export default function Home() {
         )}
 
         {/* Separator */}
-        <div className="w-full border-t border-cyan-950/10 my-8" />
+        <div className="w-full border-t border-slate-900/10 my-8" />
 
         {/* Featured Content Below */}
         <div id="featured-content" className="w-full pt-4 scroll-mt-24">
@@ -116,9 +116,9 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full py-8 px-6 border-t border-cyan-950/15 bg-black/60 text-center font-mono text-[10px] text-zinc-600">
-        <p>© 2026 COSMIC ARENA. DEVELOPED FOR UCHIHA SPACE LEGENDS INC.</p>
-        <p className="mt-1.5 text-zinc-700">POWERED BY NEXT.JS, TAILWIND CSS & CANVAS ENGINE</p>
+      <footer className="w-full py-8 px-6 border-t border-slate-900/15 bg-black/60 text-center font-mono text-[10px] text-slate-600">
+        <p>© 2026 CYBERNETIC ARENA. DEVELOPED FOR STARK SPACE INDUSTRIES INC.</p>
+        <p className="mt-1.5 text-slate-750">POWERED BY NEXT.JS, TAILWIND CSS & CANVAS ENGINE</p>
       </footer>
     </div>
   );

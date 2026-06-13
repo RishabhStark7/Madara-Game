@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Madara's Desert Stand - Twilight Ninja Survival Game",
-  description: "Take command of Uchiha Madara in an endless desert battle against shadow bandits. Control with mouse or virtual touch joysticks, perform automatic blade swings, and unleash fire chakra ultimates.",
+  title: "Stark's Space Arena - Iron Man Avenger Survival Game",
+  description: "Take command of Iron Man in an endless space battle against AI bots. Control with mouse or virtual touch joysticks, perform auto-locking bending laser fire, and unleash Repulsor Mega missile swarms.",
 };
 
 export default function RootLayout({
